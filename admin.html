@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Painel · Marcello Veículos</title>
+<style>
+:root{color-scheme:dark;--bg:#11151c;--card:#1b212b;--line:#2c3441;--ink:#eef1f6;--mut:#9aa4b2;--y:#f7c948;--r:#e8636a}
+*{box-sizing:border-box}body{margin:0 auto;max-width:640px;padding:16px;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,sans-serif}
+h1{font-size:22px;margin:0 0 4px}.s{color:var(--mut);margin:0 0 14px}
+button,.b{display:inline-block;font:600 16px system-ui;border:0;border-radius:10px;padding:11px 16px;background:var(--r);color:#11151c;min-height:44px;cursor:pointer;text-align:center}
+.g{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.row{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0}
+.row img{width:72px;height:54px;object-fit:cover;border-radius:8px;background:#000}
+.row div{flex:1;min-width:0}.row b,.row small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row small{color:var(--mut)}
+.row button{padding:8px 12px;min-height:40px}
+label{display:block;margin:12px 0 4px;font-size:14px;color:var(--mut)}
+input,select,textarea{width:100%;font:inherit;padding:11px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+input[type=checkbox]{width:auto;margin-right:8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.ph div{position:relative}.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px}
+.ph button{position:absolute;top:4px;right:4px;min-height:32px;padding:2px 9px}
+.ph span{position:absolute;left:4px;bottom:6px;background:var(--y);color:#11151c;font-size:12px;font-weight:700;padding:1px 6px;border-radius:4px}
+.bar{position:sticky;bottom:0;background:var(--bg);padding:10px 0;display:flex;gap:8px}.bar>*{flex:1}
+#st{color:var(--y);font-size:14px;min-height:20px}[hidden]{display:none!important}
+</style></head><body>
+<h1>Painel do estoque</h1>
+<p class="s">Adicione, edite ou remova veículos. No fim, baixe o <b>carros.json</b> e envie ao GitHub.</p>
+<div id="st" role="status"></div>
+<section id="v1">
+  <p id="nf" class="s" hidden>Não achei o carros.json no site. Toque em "Abrir carros.json".</p>
+  <div id="list"></div>
+  <div class="bar"><button id="new">+ Novo veículo</button><button id="dl" class="g">Baixar carros.json</button></div>
+  <label class="b g" style="width:100%">Abrir carros.json<input id="open" type="file" accept=".json,application/json" hidden></label>
+</section>
+<form id="v2" hidden novalidate>
+  <label>Marca e modelo *</label><input id="n" placeholder="Hyundai HB20">
+  <label>Versão</label><input id="v" placeholder="1.0 12V Flex Comfort">
+  <div class="two"><div><label>Ano *</label><input id="y" type="number" inputmode="numeric" placeholder="2020"></div>
+  <div><label>Ano fab/modelo</label><input id="ay" placeholder="2019/2020"></div></div>
+  <div class="two"><div><label>Km *</label><input id="km" type="number" inputmode="numeric"></div>
+  <div><label>Preço (R$)</label><input id="p" type="number" inputmode="numeric" placeholder="vazio = consulte"></div></div>
+  <div class="two"><div><label>Cor</label><input id="c"></div>
+  <div><label>Câmbio</label><select id="g"><option>Manual</option><option>Automático</option></select></div></div>
+  <label><input id="ipva" type="checkbox">IPVA pago</label>
+  <label>Observação (ex.: sinistro)</label><textarea id="obs" rows="2"></textarea>
+  <label>Fotos (toque na foto para torná-la a capa)</label>
+  <input id="files" type="file" accept="image/*" multiple>
+  <div class="ph" id="ph"></div>
+  <p id="err" style="color:var(--r)" role="alert"></p>
+  <div class="bar"><button type="submit">Salvar</button><button type="button" id="cx" class="g">Cancelar</button></div>
+</form>
+<script>
+var $=function(i){return document.getElementById(i)},cars=[],cur=null,fotos=[],dirty=false;
+function h(t,a,k){var e=document.createElement(t);for(var x in a){if(x==="text")e.textContent=a[x];else e.setAttribute(x,a[x])}(k||[]).forEach(function(c){e.appendChild(c)});return e}
+function st(){$("st").textContent=dirty?"● Alterações pendentes: baixe o carros.json e envie ao GitHub.":""}
+function show(v){$("v1").hidden=v!==1;$("v2").hidden=v!==2;scrollTo(0,0)}
+function list(){var l=$("list");l.textContent="";cars.forEach(function(c,i){
+  var im=h("img",{alt:""});if(c.fotos&&c.fotos[0])im.src=c.fotos[0];
+  var ed=h("button",{type:"button","class":"g",text:"Editar"}),rm=h("button",{type:"button","class":"g",text:"Remover"});
+  ed.onclick=function(){edit(i)};
+  rm.onclick=function(){if(confirm("Remover "+c.y+" "+c.n+"?")){cars.splice(i,1);dirty=true;st();list()}};
+  l.appendChild(h("div",{"class":"row"},[im,h("div",{},[h("b",{text:c.y+" "+c.n}),h("small",{text:(c.v||"")+" · "+(c.p!=null?"R$ "+c.p.toLocaleString("pt-BR"):"sem preço")})]),ed,rm]))});
+  if(!cars.length)l.appendChild(h("p",{"class":"s",text:"Nenhum veículo."}))}
+function set(d){cars=d;$("nf").hidden=true;list()}
+fetch("carros.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(set).catch(function(){$("nf").hidden=false;list()});
+$("open").onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{set(JSON.parse(r.result))}catch(e){alert("Arquivo inválido.")}};r.readAsText(f)};
+function ph(){var p=$("ph");p.textContent="";fotos.forEach(function(s,i){
+  var im=h("img",{alt:"Foto "+(i+1)});im.src=s;im.onclick=function(){fotos.unshift(fotos.splice(i,1)[0]);ph()};
+  var x=h("button",{type:"button","class":"g",text:"✕","aria-label":"Remover foto"});x.onclick=function(){fotos.splice(i,1);ph()};
+  p.appendChild(h("div",{},[im,x,i?null:h("span",{text:"CAPA"})].filter(Boolean)))})}
+function shrink(f){return new Promise(function(ok,no){var u=URL.createObjectURL(f),im=new Image();
+  im.onload=function(){var w=Math.min(800,im.width),c=document.createElement("canvas");c.width=w;c.height=Math.round(im.height*w/im.width);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL("image/jpeg",.78))};
+  im.onerror=no;im.src=u})}
+$("files").onchange=function(){var a=[].slice.call(this.files);this.value="";
+  Promise.all(a.map(shrink)).then(function(r){fotos=fotos.concat(r);ph()}).catch(function(){$("err").textContent="Não consegui ler uma das fotos."})};
+var F=["n","v","y","ay","km","p","c","g","obs"];
+function edit(i){cur=i;var c=i==null?{}:cars[i];F.forEach(function(k){$(k).value=c[k]==null?"":c[k]});
+  $("g").value=c.g||"Manual";$("ipva").checked=!!c.ipva;fotos=(c.fotos||[]).slice();$("err").textContent="";ph();show(2)}
+$("new").onclick=function(){edit(null)};
+$("cx").onclick=function(){show(1)};
+$("v2").onsubmit=function(e){e.preventDefault();
+  var n=$("n").value.trim(),y=+$("y").value,km=$("km").value;
+  if(n.indexOf(" ")<1){$("err").textContent="Informe marca e modelo (ex.: Hyundai HB20).";return}
+  if(!y||y<1980||y>2100){$("err").textContent="Informe o ano.";return}
+  if(km===""||+km<0){$("err").textContent="Informe a km (0 para zero km).";return}
+  var o={id:cur==null?"v"+Date.now().toString(36):cars[cur].id,y:y,n:n,v:$("v").value.trim(),km:+km,c:$("c").value.trim()||null,g:$("g").value,p:$("p").value===""?null:+$("p").value,fotos:fotos};
+  if($("ay").value.trim())o.ay=$("ay").value.trim();if($("ipva").checked)o.ipva=1;if($("obs").value.trim())o.obs=$("obs").value.trim();
+  if(cur==null)cars.push(o);else cars[cur]=o;dirty=true;st();list();show(1)};
+$("dl").onclick=function(){var a=h("a",{download:"carros.json"});
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(cars,null,1)],{type:"application/json"}));document.body.appendChild(a);a.click();a.remove();dirty=false;st()};
+</script></body></html>
